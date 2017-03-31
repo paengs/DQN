@@ -1,8 +1,8 @@
 import torch.nn as nn
 import torch.nn.functional as F
 
-# DQN network
 class DQN(nn.Module):
+    """ Deep Q Network """
     def __init__(self, num_history=4, num_actions=18):
         super(DQN, self).__init__()
         self.conv1 = nn.Conv2d(num_history, 32, kernel_size=8, stride=4)

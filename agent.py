@@ -10,17 +10,16 @@ from torch.autograd import Variable
 dtype = torch.cuda.FloatTensor
 
 class Agent(object):
-    def __init__(self):
-        self.env = Environment()
+    def __init__(self, conf):
+        self.env = Environment(name=conf.env, width=conf.width, height=conf.height, history=conf.history)
         self.hist = History(self.env)
-        self.mem = ReplayMemory(self.env, capacity=1000000, batch_size=32)
-        self._capa = 1000000
-        self._ep_en = 0.1
-        self._ep_st = 1.
-        self._learn_st = 50000
-        #self._learn_st = 4
-        self._tr_freq = 4
-        self._update_freq = 10000
+        self.mem = ReplayMemory(self.env, capacity=conf.mem_capacity, batch_size=conf.batch_size)
+        self._capa = conf.mem_capacity
+        self._ep_en = conf.ep_end
+        self._ep_st = conf.ep_start
+        self._learn_st = conf.learn_start
+        self._tr_freq = conf.train_freq
+        self._update_freq = conf.update_freq
         self.q = DQN(self.hist._history, self.env.action_size).type(dtype)
         self.target_q = DQN(self.hist._history, self.env.action_size).type(dtype)
         self.optim = torch.optim.RMSprop(self.q.parameters(), lr=0.00025, alpha=0.95, eps=0.01)
@@ -80,8 +79,8 @@ class Agent(object):
                     torch.save(self.target_q, 'models/model_{}'.format(self.step))
                 #print 'update'
        
-    def play(self):
-        self.q = torch.load('model_1029999')
+    def play(self, model_path):
+        self.q = torch.load(model_path)
         screen, reward, action, terminal = self.env.new_random_game()
         current_reward = 0
         for _ in range(self.env._history):

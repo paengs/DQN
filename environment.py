@@ -1,5 +1,4 @@
 """ This code is based on https://github.com/devsisters/DQN-tensorflow """
-
 import gym
 import random
 import numpy as np
