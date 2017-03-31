@@ -1,4 +1,5 @@
 import random
+from tqdm import tqdm
 from deep_q_network import DQN
 from environment import Environment
 from environment import History
@@ -31,7 +32,8 @@ class Agent(object):
         num_game, self.update_count, ep_reward = 0, 0, 0.
         total_reward, self.total_loss, self.total_q = 0., 0., 0.
         ep_rewards, actions = [], []
-        for self.step in xrange(50000000):
+        #for self.step in xrange(50000000):
+        for self.step in tqdm(range(0, 50000000), ncols=70, initial=0):
             if self.step == self._learn_st:
                 num_game, self.update_count, ep_reward = 0, 0, 0.
                 total_reward, self.total_loss, self.total_q = 0., 0., 0.
@@ -51,10 +53,18 @@ class Agent(object):
             total_reward += reward
             if self.step >= self._learn_st:
                 if self.step % 10000 == 10000 - 1:
-                    #avg_reward = total_reward / self.test_step
+                    avg_reward = total_reward / 10000.
                     avg_loss = self.total_loss / self.update_count
                     avg_q = self.total_q / self.update_count
-                    print 'loss: {}, q: {}'.format(avg_loss, avg_q)
+                    print '# games: {}, reward: {}, loss: {}, q: {}'.format(num_game, avg_reward, avg_loss, avg_q)
+                    num_game = 0
+                    total_reward = 0.
+                    self.total_loss = 0.
+                    self.total_q = 0.
+                    self.update_count = 0
+                    ep_reward = 0.
+                    ep_rewards = []
+                    actions = []
      
     def observe(self, screen, reward, action, terminal):
         reward = max(-1., min(1., reward))
@@ -66,38 +76,55 @@ class Agent(object):
                 #print '{} q-learning'.format(self.step)
             if self.step % self._update_freq == self._update_freq - 1:
                 self.target_q.load_state_dict(self.q.state_dict())
+                if self.step % (self._update_freq * 10) == (self._update_freq*10) -1:
+                    torch.save(self.target_q, 'models/model_{}'.format(self.step))
                 #print 'update'
        
     def play(self):
-        print 'play'
+        self.q = torch.load('model_1029999')
+        screen, reward, action, terminal = self.env.new_random_game()
+        current_reward = 0
+        for _ in range(self.env._history):
+            self.hist.add(screen)
+        for _ in range(10000):
+            action = self._select_action(test_mode=True)
+            screen, reward, terminal = self.env.act(action)
+            self.hist.add(screen)
+            current_reward += reward
+            if terminal:
+                print current_reward
+                current_reward = 0
 
     def _q_learning(self):
         sc_t, actions, rewards, sc_t_1, terminals = self.mem.sample()
         batch_obs_t = self._to_tensor(sc_t)
         batch_obs_t_1 = self._to_tensor(sc_t_1)
-        batch_rewards = self._to_tensor(rewards)#, data_type=torch.cuda.LongTensor)
-        batch_actions = self._to_tensor(actions, data_type=torch.cuda.LongTensor)
-        batch_terminals = self._to_tensor(1.-terminals)
+        batch_rewards = self._to_tensor(rewards).unsqueeze(1)
+        batch_actions = self._to_tensor(actions, data_type=torch.cuda.LongTensor).unsqueeze(1)
+        batch_terminals = self._to_tensor(1.-terminals).unsqueeze(1)
 
-        q_values = self.q(batch_obs_t).gather(1, batch_actions.unsqueeze(1))
+        q_values = self.q(batch_obs_t).gather(1, batch_actions)
+        batch_obs_t_1.volatile=True
         next_max_q_values = self.target_q(batch_obs_t_1).max(1)[0]
         next_q_values = batch_terminals * next_max_q_values
         target_q_values = batch_rewards + (0.99*next_q_values)
-        bellman_err = target_q_values - q_values
-        self.loss = bellman_err.clamp(-1, 1)
-        #self.loss = clipped_bellman_err * -1.0
-        
+        target_q_values.volatile=False
+
+        cri = torch.nn.SmoothL1Loss()
+        self.loss = cri(q_values, target_q_values)
         self.optim.zero_grad()
-        q_values.backward(self.loss.data.unsqueeze(1))
-        #self.loss.backward()
+        self.loss.backward()
         self.optim.step()
         self.update_count += 1
         self.total_q += q_values.data.mean()
         self.total_loss += self.loss.data.mean()
 
-    def _select_action(self):
+    def _select_action(self, test_mode=False):
         # epsilon greedy policy
-        ep = self._ep_en + max(0., (self._ep_st - self._ep_en) * (self._capa - max(0., self.step - self._learn_st)) / self._capa)
+        if not test_mode:
+            ep = self._ep_en + max(0., (self._ep_st - self._ep_en) * (self._capa - max(0., self.step - self._learn_st)) / self._capa)
+        else:
+            ep = -1.
         if random.random() < ep:
             action = random.randrange(self.env.action_size)
         else:
@@ -111,14 +138,5 @@ class Agent(object):
 
 if __name__ == '__main__':
     agent = Agent()
+    #agent.play()
     agent.train()
-    '''
-    from skimage import io
-    for i in range(10):
-        agent.train()
-        st_img = agent.hist.get[0]
-        prev_img = st_img
-        io.imsave('/data/test_{}.jpg'.format(i), st_img)
-    import ipdb
-    ipdb.set_trace()
-    '''
