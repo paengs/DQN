@@ -79,20 +79,21 @@ class Agent(object):
                     torch.save(self.target_q, 'models/model_{}'.format(self.step))
                 #print 'update'
        
-    def play(self, model_path):
+    def play(self, model_path, num_ep=100):
         self.q = torch.load(model_path)
-        screen, reward, action, terminal = self.env.new_random_game()
-        current_reward = 0
-        for _ in range(self.env._history):
-            self.hist.add(screen)
-        for _ in range(10000):
-            action = self._select_action(test_mode=True)
-            screen, reward, terminal = self.env.act(action)
-            self.hist.add(screen)
-            current_reward += reward
-            if terminal:
-                print current_reward
-                current_reward = 0
+        for ep in range(num_ep):
+            screen, reward, action, terminal = self.env.new_random_game()
+            current_reward = 0
+            for _ in range(self.env._history):
+                self.hist.add(screen)
+            for _ in range(10000):
+                action = self._select_action(test_mode=True)
+                screen, reward, terminal = self.env.act(action)
+                self.hist.add(screen)
+                current_reward += reward
+                if terminal:
+                    print current_reward
+                    break
 
     def _q_learning(self):
         sc_t, actions, rewards, sc_t_1, terminals = self.mem.sample()
