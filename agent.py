@@ -81,19 +81,38 @@ class Agent(object):
        
     def play(self, model_path, num_ep=100):
         self.q = torch.load(model_path)
+        best_reward = 0
+        best_screen_hist = []
         for ep in range(num_ep):
-            screen, reward, action, terminal = self.env.new_random_game()
+            print '# episode: {}'.format(ep)
+            screen, reward, action, terminal = self.env.new_random_game(force=True)
             current_reward = 0
+            current_screen_hist = []
+            act_hist = []
+            current_screen_hist.append(self.env.screen)
             for _ in range(self.env._history):
                 self.hist.add(screen)
-            for _ in range(10000):
+            cnt = 0
+            while not terminal:
+                cnt += 1
                 action = self._select_action(test_mode=True)
-                screen, reward, terminal = self.env.act(action)
+                act_hist.append(action)
+                if cnt > 200: # avoid local maxima ??? same actions....??
+                    import numpy as np
+                    if np.array(act_hist[-100:]).mean() == act_hist[-1]:
+                        action = random.randrange(self.env.action_size)
+                screen, reward, terminal = self.env.act(action, is_train=False)
                 self.hist.add(screen)
                 current_reward += reward
-                if terminal:
-                    print current_reward
-                    break
+                #print cnt, action, current_reward, terminal, self.env.lives
+                current_screen_hist.append(self.env.screen)
+            print current_reward
+            if current_reward > best_reward:
+                best_reward = current_reward
+                best_screen_hist = current_screen_hist
+        import imageio
+        print 'best reward: {}'.format(best_reward)
+        imageio.mimsave('/data/best_{}.gif'.format(best_reward), best_screen_hist, 'GIF', duration=0.0001)
 
     def _q_learning(self):
         sc_t, actions, rewards, sc_t_1, terminals = self.mem.sample()

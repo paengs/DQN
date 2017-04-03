@@ -22,5 +22,6 @@ if __name__ == '__main__':
     #output = parser.parse_args()
     conf = Config()
     agent = Agent(conf)
+    agent.play('models/model_48799999')
 
     print 'start'

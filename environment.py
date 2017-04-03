@@ -16,6 +16,7 @@ class Environment(object):
         self._reward = 0
         self._terminal = True
         self._screen = None
+        self._screen_ori = None
 
     @property
     def action_size(self):
@@ -26,12 +27,18 @@ class Environment(object):
         return self._screen, self._reward, self._terminal
 
     @property
+    def screen(self):
+        return self._screen_ori
+
+    @property
     def lives(self):
         return self._env.ale.lives()
 
-    def new_random_game(self):
+    def new_random_game(self, force=False):
         if self.lives == 0:
             self._env.reset()
+        if force:
+            self._env.reset() # avoid gym internal error
         for _ in xrange(random.randint(0, 29)):
             self._step(0)
         return self._screen, 0, 0, self._terminal
@@ -45,8 +52,8 @@ class Environment(object):
         return self.state
 
     def _step(self, action):
-        self._screen, self._reward, self._terminal, _ = self._env.step(action)
-        self._screen = transform.resize(self._screen, [self._height, self._width])
+        self._screen_ori, self._reward, self._terminal, _ = self._env.step(action)
+        self._screen = transform.resize(self._screen_ori, [self._height, self._width])
         self._screen = color.rgb2gray(self._screen)
 
 class ReplayMemory(object):
