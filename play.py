@@ -17,7 +17,4 @@ class Config(object):
 if __name__ == '__main__':
     conf = Config()
     agent = Agent(conf)
-    agent.train()
-    #agent.play('models/model_48799999')
-
-    print 'start'
+    agent.play('models/model_48799999')

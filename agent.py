@@ -154,8 +154,3 @@ class Agent(object):
 
     def _to_tensor(self, ndarray, data_type=dtype):
         return Variable(torch.from_numpy(ndarray)).type(data_type)
-
-if __name__ == '__main__':
-    agent = Agent()
-    #agent.play()
-    agent.train()
