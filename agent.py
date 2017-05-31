@@ -75,7 +75,7 @@ class Agent(object):
                 #print '{} q-learning'.format(self.step)
             if self.step % self._update_freq == self._update_freq - 1:
                 self.target_q.load_state_dict(self.q.state_dict())
-                if self.step % (self._update_freq * 10) == (self._update_freq*10) -1:
+                if self.step % (self._update_freq * 10) == (self._update_freq * 10) -1:
                     torch.save(self.target_q, 'models/model_{}'.format(self.step))
                 #print 'update'
        
@@ -117,17 +117,16 @@ class Agent(object):
     def _q_learning(self):
         sc_t, actions, rewards, sc_t_1, terminals = self.mem.sample()
         batch_obs_t = self._to_tensor(sc_t)
-        batch_obs_t_1 = self._to_tensor(sc_t_1)
+        batch_obs_t_1 = self._to_tensor(sc_t_1, volatile=True)
         batch_rewards = self._to_tensor(rewards).unsqueeze(1)
         batch_actions = self._to_tensor(actions, data_type=torch.cuda.LongTensor).unsqueeze(1)
         batch_terminals = self._to_tensor(1.-terminals).unsqueeze(1)
 
         q_values = self.q(batch_obs_t).gather(1, batch_actions)
-        batch_obs_t_1.volatile=True
         next_max_q_values = self.target_q(batch_obs_t_1).max(1)[0]
         next_q_values = batch_terminals * next_max_q_values
         target_q_values = batch_rewards + (0.99*next_q_values)
-        target_q_values.volatile=False
+        target_q_values.volatile = False
 
         cri = torch.nn.SmoothL1Loss()
         self.loss = cri(q_values, target_q_values)
@@ -152,5 +151,5 @@ class Agent(object):
             action = pred.data.max(1)[1][0][0]
         return action
 
-    def _to_tensor(self, ndarray, data_type=dtype):
-        return Variable(torch.from_numpy(ndarray)).type(data_type)
+    def _to_tensor(self, ndarray, volatile=False, data_type=dtype):
+        return Variable(torch.from_numpy(ndarray), volatile=volatile).type(data_type)
